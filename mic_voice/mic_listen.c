@@ -31,7 +31,7 @@ static int mic_release( struct inode *inode, struct file *file){
 
 static struct file_operations fops = {
     .open = mic_open,
-    .unlock_ioctl = mic_ioctl,
+//    .unlocked_ioctl = mic_ioctl,
     .release = mic_release
 };
 
@@ -55,7 +55,7 @@ static void __exit mic_exit(void){
     device_destroy(mic_class, dev_number);
     class_destroy(mic_class);
     cdev_del(&mic_cdev);
-    unregister_chredv_region(dev_number, 1);
+    unregister_chrdev_region(dev_number, 1);
 
     printk("unregister inmp441 mic!\n");
 }
