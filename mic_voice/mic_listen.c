@@ -6,63 +6,53 @@
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/ioctl.h>
+#include <linux/delay.h>
 
 #define DEVICE_NAME "inmp441_mic"
 
+
 #define MAGIC_NUM 3 
-#define IOCTL_MIC_START_RECORD _IOR(MAGIC_NUM,0,char *)
-#define IOCTL_MIC_STOP_RECORD _IO(MAGIC_NUM,1,char *)
+#define IOC_MIC_START_RECORD _IOR(MAGIC_NUM,0,char *)
+#define IOC_MIC_STOP_RECORD _IO(MAGIC_NUM,1,char *)
 
 static struct cdev mic_cdev;
 static dev_t dev_number;
 static struct class *mic_class;
 
-struct task_struct *record_thread;
-bool is_recording = false;
 
-/*  不需要kthread
-int record_fn(void *data){
-
-    printk("開始錄音!\n");
-
-    while(!kthread_should_stop()){
-
-        if(is_recording){
-
-            printk("recording voice....\n");
-        }
-        msleep(1000);
-    }
-
-    printk("停止錄音!\n");
-    return 0;
-}
-*/
 
 static int mic_open( struct inode *inode, struct file *file){
     
-    is_recording = true;
-    printk("inmp441 麥克風開啟!\n");
-    record_thread = kthread_run(record_fn, NULL, "record_thread");
-    if(IS_ERR(record_thread)){
-        printk("無法建立錄音執行續!\n");
-        return PTR_ERR(record_thread);
-    }
+    printk(KERN_INFO "開啟 inmp441麥克風!\n");   
     return 0;
+
 }
 
 static int mic_release( struct inode *inode, struct file *file){
 
-    is_recording = false;
-    kthread_stop(record_thread);
-    printk("inmp441 麥克風關閉!\n");
+    printk(KERN_INFO"關閉 inmp441麥克風!\n");
+    return 0;
+
+}
+
+long mic_ioctl(struct file *file, unsigned int cmd, unsigned long ioctl_param)
+{ 
+    switch(cmd){
+        case IOC_MIC_START_RECORD:
+            printk(KERN_INFO "麥克風錄音中.......\n");
+            msleep(1000);
+            break;
+        case IOC_MIC_STOP_RECORD:
+            printk(KERN_INFO "麥克風停止錄音!\n");
+            break;
+    }
     return 0;
 }
 
 static struct file_operations fops = {
     .owner = THIS_MODULE,
     .open = mic_open,
-//    .unlocked_ioctl = mic_ioctl,
+    .unlocked_ioctl = mic_ioctl,
     .release = mic_release
 };
 
