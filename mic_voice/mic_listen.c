@@ -20,6 +20,7 @@ static struct class *mic_class;
 struct task_struct *record_thread;
 bool is_recording = false;
 
+/*  不需要kthread
 int record_fn(void *data){
 
     printk("開始錄音!\n");
@@ -36,6 +37,7 @@ int record_fn(void *data){
     printk("停止錄音!\n");
     return 0;
 }
+*/
 
 static int mic_open( struct inode *inode, struct file *file){
     
