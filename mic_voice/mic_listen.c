@@ -5,6 +5,7 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/device.h>
+
 #include <linux/delay.h>
 #include "micdev.h"
 
@@ -15,6 +16,7 @@
 #define IOC_MIC_START_RECORD _IOR(MAGIC_NUM,0,char *)
 #define IOC_MIC_STOP_RECORD _IO(MAGIC_NUM,1,char *)
 */
+
 static struct cdev mic_cdev;
 static dev_t dev_number;
 static struct class *mic_class;
