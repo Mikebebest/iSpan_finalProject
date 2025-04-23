@@ -53,17 +53,19 @@ uint32_t pin_2 = 24;   //green light = not recording
 uint32_t fn = 5;
 
 static int led_open(struct inode* inode, struct file *file){
+    printk("開啟led 設定 GPIO23 24 as RIO\n");
+
     writel(fn, &GPIO[pin_1].ctrl);
     writel(fn, &GPIO[pin_2].ctrl);
     writel(0x10, &pad[pin_1]);
     writel(0x10, &pad[pin_2]);
     writel(0x01<<pin_1, &rioSET->OE);
     writel(0x01<<pin_2, &rioSET->OE);
-    printk("開啟led成功\n");
     return SUCCESS;
 }
 
 static int led_close(struct inode* inode, struct file *file){
+    u32 val;
     val = readl(&rioSET->OE);
     val &= ~(1<<pin_1);
     val &= ~(1<<pin_2);
@@ -72,6 +74,7 @@ static int led_close(struct inode* inode, struct file *file){
 }
 
 static ssize_t led_write(struct file *fp, const char *buff, size_t len, loff_t *offset){
+    int byte_written = 0;
     char buffer[80];
     if(copy_from_user(buffer, buff, len) != 0){
         return -EFAULT;
@@ -89,8 +92,8 @@ static ssize_t led_write(struct file *fp, const char *buff, size_t len, loff_t *
     }else{
         return -EINVAL;
     }
-
-    return 0;
+    byte_written++;
+    return byte_written;
 }
 
 static struct file_operations fops = {
@@ -102,14 +105,14 @@ static struct file_operations fops = {
 static int __init led_init(void)
 {
     int ret;
-    ret = (alloc_chrdev_region(&dev_number,0,MINOR_NUM, DEVICE_NAME));
+    ret = (alloc_chrdev_region(&dev_number,0,1, DEVICE_NAME));
     if(ret < 0){
         printk("註冊字元驅動程式失敗!\n");
         return -1;
     }
 
     cdev_init(&led_cdev,&fops);
-    mic_cdev.owner = THIS_MODULE;
+    led_cdev.owner = THIS_MODULE;
     cdev_add(&led_cdev, dev_number, 1);
 
     led_class = class_create(DEVICE_NAME);
@@ -118,8 +121,9 @@ static int __init led_init(void)
         printk("led class created failed\n");
         return -1;
     }
-    device_create(led_class, NULL, MKDEV(MAJOR(dev_number), 0), NULL, "led");
-    
+    device_create(led_class, NULL, MKDEV(MAJOR(dev_number), 0), NULL, DEVICE_NAME);
+    printk(KERN_ALERT"'mknod /dev/led c %d 0'.\n", MAJOR(dev_number));
+
     PERIBase = ioremap(0x1f00000000,64*1024*1024);
     if( PERIBase == NULL ){
         printk("ioremap() fail\n");
@@ -128,28 +132,26 @@ static int __init led_init(void)
         return -1;;
     }
 
-    GPIOBase = PERIBase + 0xD000 / 4;
-    RIOBase = PERIBase  + 0xe000 / 4;
-    PADBase = PERIBase  + 0xf000 / 4;
+    GPIOBase = PERIBase + 0xD0000 / 4;
+    RIOBase = PERIBase  + 0xe0000 / 4;
+    PADBase = PERIBase  + 0xf0000 / 4;
     pad = PADBase + 1;
 
 
     printk("註冊led 成功!\n");
-    printk("led major: %d",MAJOR(dev_number));
+    printk("led major: %d\n",MAJOR(dev_number));
     led_1_2 = 0;
-    return 0;
-
-    
+    return 0;  
 }
 
 
-static int __exit led_exit(void){
+static void __exit led_exit(void){
 
     iounmap(PERIBase);
     device_destroy(led_class, dev_number);
     class_destroy(led_class);
     cdev_del(&led_cdev);
-    unregister_chrdev_region(dev_number, MINOR_NUM);
+    unregister_chrdev_region(dev_number,1);
 
     printk("解除註冊 led!\n");
 }
