@@ -66,6 +66,8 @@ static int led_open(struct inode* inode, struct file *file){
 
 static int led_close(struct inode* inode, struct file *file){
     u32 val;
+
+    printk("關閉 GPIO 23 24 設定\n")
     val = readl(&rioSET->OE);
     val &= ~(1<<pin_1);
     val &= ~(1<<pin_2);
