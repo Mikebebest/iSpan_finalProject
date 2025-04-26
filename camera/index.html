@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Voice Control Monitor</title>
+<style>
+  body { font-family: sans-serif; padding: 20px; }
+  #photo { width: 50%; border: 1px solid #ccc; margin-top: 10px; display: none; }
+</style>
+</head>
+<body>
+  <h1>Voice Control Monitor</h1>
+
+  <h2>📸 拍照設定</h2>
+  Width: <input type="number" id="width" value="1280" style="width:80px;">
+  Height: <input type="number" id="height" value="720" style="width:80px;">
+  <br><br>
+  <button onclick="capture()">📸 拍照</button>
+
+  <h2>📸 最新照片</h2>
+  <img id="photo" src="">
+
+<script>
+const serverIP = "192.168.0.105"; // 改成你的server IP
+
+function capture() {
+  const width = document.getElementById('width').value;
+  const height = document.getElementById('height').value;
+
+  fetch(`http://${serverIP}:8080/capture?width=${width}&height=${height}`)
+    .then(() => {
+      setTimeout(() => {
+        const photo = document.getElementById('photo');
+        photo.src = `/uploads/output.jpg?t=${Date.now()}`;
+        photo.style.display = 'block';
+      }, 2000);
+    })
+    .catch(() => {
+      document.getElementById('photo').style.display = 'none';
+    });
+}
+</script>
+</body>
+</html>
