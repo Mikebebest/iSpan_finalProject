@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Voice Command Monitor</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    #status { color: green; font-weight: bold; margin-bottom: 20px; }
+    #text { font-size: 24px; font-weight: bold; margin-top: 20px; display: none; }
+    #alert { font-size: 32px; font-weight: bold; margin-top: 20px; display: none; }
+    .emergency { color: red; }
+    .light-on { color: dodgerblue; }
+    .light-off { color: orange; }
+  </style>
+</head>
+<body>
+  <h1>Voice Control Monitor</h1>
+  <p id="status">🟢 背景監聽中...</p>
+  <p id="alert"></p>
+  <p id="text"></p>
+
+  <script>
+    const serverIP = "192.168.0.105"; // 你的server IP
+    const ws = new WebSocket(`ws://${serverIP}:8081`);
+    const textElement = document.getElementById('text');
+    const alertElement = document.getElementById('alert');
+
+    ws.onopen = () => {
+      console.log(`🟢 WebSocket connected to ${serverIP}:8081`);
+    };
+
+    ws.onmessage = (event) => {
+      const text = event.data.trim().toLowerCase();
+      console.log("收到語音文字:", text);
+
+      alertElement.style.display = 'none';
+      textElement.style.display = 'block';
+      textElement.textContent = `🎤 辨識到: ${text}`;
+      textElement.style.color = "black"; // 一般顯示黑色
+
+      if (text.includes("help")) {
+        alertElement.style.display = 'block';
+        alertElement.textContent = "🚨 EMERGENCY! 緊急狀況 🚨";
+        alertElement.className = 'emergency';
+        sendCommand("emergency");
+      } else if (text.includes("hello")) {
+        alertElement.style.display = 'block';
+        alertElement.textContent = "💡 開燈指令已送出！";
+        alertElement.className = 'light-on';
+        sendCommand("light on");
+      } else if (text.includes("bye bye")) {
+        alertElement.style.display = 'block';
+        alertElement.textContent = "💤 關燈指令已送出！";
+        alertElement.className = 'light-off';
+        sendCommand("light off");
+      }
+    };
+
+    function sendCommand(cmd) {
+      fetch(`http://${serverIP}:8080/send?cmd=${encodeURIComponent(cmd)}`)
+        .then(res => {
+          if (res.ok) console.log(`✅ 指令 ${cmd} 已送出`);
+          else console.error(`❌ 指令 ${cmd} 發送失敗`);
+        })
+        .catch(err => {
+          console.error(`❌ 指令發送錯誤:`, err);
+        });
+    }
+  </script>
+</body>
+</html>
