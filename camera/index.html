@@ -21,19 +21,24 @@
   <img id="photo" src="">
 
 <script>
-const serverIP = "192.168.0.105"; // 改成你的server IP
+const serverIP = "192.168.0.105";
 
 function capture() {
   const width = document.getElementById('width').value;
   const height = document.getElementById('height').value;
 
+  const photo = document.getElementById('photo');
+  photo.style.display = 'none';
+
   fetch(`http://${serverIP}:8080/capture?width=${width}&height=${height}`)
-    .then(() => {
-      setTimeout(() => {
-        const photo = document.getElementById('photo');
-        photo.src = `/uploads/output.jpg?t=${Date.now()}`;
-        photo.style.display = 'block';
-      }, 2000);
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        photo.src = `/uploads/${data.filename}?t=${Date.now()}`;
+        photo.onload = () => {
+          photo.style.display = 'block';
+        };
+      }
     })
     .catch(() => {
       document.getElementById('photo').style.display = 'none';
