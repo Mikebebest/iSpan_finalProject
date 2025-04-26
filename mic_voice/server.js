@@ -32,7 +32,7 @@ textServer.listen(PORT_TCP, () => {
 
 // 提供 HTML 網頁
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index2.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // 啟動 HTTP 伺服器
