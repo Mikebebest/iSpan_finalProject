@@ -1,155 +1,150 @@
 #include <stdio.h>
-#include <pthread.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
-#include "micdev.h"
-#include <sys/types.h>
+#include <pthread.h>
+#include <string.h>
+#include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <signal.h>
+#include <sys/file.h>
+#include <sys/wait.h>
+#include <time.h>
+#include <errno.h>
 
-#define BUF_LEN 4096
-#define PCM_DEVICE "/dev/snd/pcmC0D0c"
+#include "micdev.h"
+
+#define FIFO_NAME "./record/inmp_rec"
 #define MIC_DEVICE "/dev/inmp441_mic"
-#define FIFO_NAME "/tmp/rec_fifo"
 
-//char rec_buf[BUF_LEN];
-int bg_record_running = 1;
-int user_cmd = 0;  //user 可能傳送的指令
-int open_mode = O_WRONLY;
-void *bg_record_monitor(void *arg);
-void *manual_record(void *arg);
+volatile int keep_running = 1;
+volatile pid_t child_pid = -1;
+int mic_fd = -1;
+int round_counter = 0;
 
-int main(){
+void create_fifo_if_need();
+void signal_handler(int sig);
+void cleanup_on_exit();
+void safe_sleep(int seconds);
 
+int main() {
+    setsid(); // 新增，將自己變成新的 session leader
 
-    int res;
-    pthread_t bg_thread;
-    pthread_t man_thread;
-    void *thread_result;
-
-    int mic_fd = open(MIC_DEVICE, O_RDWR);
-    if(mic_fd < 0){
-        printf("無法開啟麥克風");
-        exit(-1);
+    int lock_fd = open("/tmp/mic_control.lock", O_CREAT | O_RDWR, 0666);
+    if (flock(lock_fd, LOCK_EX | LOCK_NB) != 0) {
+        printf("🛑 mic_control4 已在執行中，結束啟動\n");
+        exit(1);
     }
-    if(access(FIFO_NAME,F_OK) == -1){
-        res = mkfifo(FIFO_NAME, 0777);
-        if(res != 0){
-            fprintf(stderr, "無法建立fifo %s\n",FIFO_NAME);
-            exit(EXIT_FAILURE);
+
+    signal(SIGINT, signal_handler);
+    atexit(cleanup_on_exit);
+
+    system("mkdir -p ./record");
+    create_fifo_if_need();
+
+    mic_fd = open(MIC_DEVICE, O_RDWR);
+    if (mic_fd < 0) {
+        perror("❌ 無法開啟 MIC 裝置");
+        return -1;
+    }
+
+    ioctl(mic_fd, IOC_MIC_STOP_RECORD, 2);
+    printf("錄音準備.....\n");
+    sleep(3);
+
+    while (keep_running) {
+    //    round_counter++;
+    //    printf("\n\U0001F680 開始第 %02d 輪錄音...\n", round_counter);
+
+        child_pid = fork();
+        ioctl(mic_fd,IOC_MIC_START_RECORD,1);
+        if (child_pid == 0) {
+            execlp("sh", "sh", "-c", "arecord -D plughw:2,0 -f S16_LE -c 1 -r 16000 -t raw -q | tee ./record/inmp_rec > /dev/null", NULL);
+            perror("❌ arecord|tee exec 失敗");
+            exit(1);
         }
-    }
+        
+        while(keep_running){
+            printf("[MIC] 錄音中.....\n");
+            sleep(5);
+        }
+
+    /*    for (int i = 0; i < 50; i++) {
+            if (!keep_running) break;
+            printf("[錄音中] %02d / 50 秒\r", i + 1);
+            fflush(stdout);
+            safe_sleep(1);
+        }
     
-    //開始背景的錄音程序
-    res = pthread_create(&bg_thread, NULL, bg_record_monitor, NULL);
-    if(res != 0){
-        perror("背景錄音程序執行失敗!");
-        exit(EXIT_FAILURE);
-    }
-    pthread_detach(bg_thread);
-
-    if(user_cmd == 1){
-        res = pthread_create(&man_thread, NULL, manual_record, NULL);
-        if(res != 0){
-            perror("手動錄音程序失敗!");
-            exit(EXIT_FAILURE);
+        if (child_pid > 0) {
+            kill(child_pid, SIGTERM);
+            waitpid(child_pid, NULL, WNOHANG);
+            child_pid = -1;
         }
+
+        printf("\n[DEBUG] 錄音結束，準備切換\n");
+
+        ioctl(mic_fd, IOC_MIC_STOP_RECORD, 2);
+
+        FILE *fp = fopen(FIFO_NAME, "w");
+        if (fp) {
+            fprintf(fp, "__STOP__\n");
+            fclose(fp);
+            printf("📤 傳送 __STOP__ 至 Python\n");
+        }
+
+        for (int i = 0; i < 10; i++) {
+            if (!keep_running) break;
+            printf("[休息中] %02d / 10 秒\r", i + 1);
+            fflush(stdout);
+            safe_sleep(1);
+        }
+    
     }
-    if(user_cmd == 2){
-        if((res = pthread_cancel(man_thread)) != 0){
-            perror("手動結束錄音失敗!");
-            exit(EXIT_FAILURE);
-        };
+
+    if (child_pid > 0) {
+        kill(child_pid, SIGTERM);
+        waitpid(child_pid, NULL, WNOHANG);
     }
-    res = pthread_join(man_thread, &thread_result);
-    if(res != 0){
-        perror("執行緒join failed");
-        exit(EXIT_FAILURE);
-    }
-    close(mic_fd);
-    exit(EXIT_SUCCESS);    
+    */
+    return 0;
+}
 }
 
-void *bg_record_monitor(void *arg){
-    int res;
-    int mic_fifo = open(FIFO_NAME,open_mode);
-    if(mic_fifo == -1){
-        perror("Fifo 開啟失敗");
-        exit(EXIT_FAILURE);
-    }
-    char mic_buf[BUF_LEN];
-    if((res = ioctl(mic_fd,IOC_MIC_START_RECORD,NULL)) <0){
-        printf("ioctl mic 自動監聽開啟失敗!"); exit(-1);
-    };
-    int fd = open(PCM_DEVICE, O_RDONLY);
-    if(fd < 0){
-        perror("開啟PCM_DEVICE failed!");
-        return NULL;
-    }
-    while(bg_record_running){    
-        int voice = read(fd, mic_buf, sizeof(mic_buf));  //從I2S 讀取音訊資料
-        if(voice > 0){
-            res = write(mic_fifo,mic_buf,sizeof(mic_buf));
+void create_fifo_if_need() {
+    if (access(FIFO_NAME, F_OK) == -1) {
+        if (mkfifo(FIFO_NAME, 0777) != 0) {
+            perror("❌ 建立 FIFO 失敗");
+            exit(EXIT_FAILURE);
         }
+        printf("✅ 建立 FIFO: %s\n", FIFO_NAME);
+    } else {
+        chmod(FIFO_NAME, 0777);
     }
-
-    close(fd);
-    close(mic_fifo);
-    if((res = ioctl(mic_fd,IOC_MIC_STOP_RECORD,NULL)) < 0){
-        printf("ioctl mic 自動監聽關閉失敗!"); exit(-1);
-    }
-    pthread_exit(0);
 }
 
-void *manual_record(void *arg){
-    char mic_buf[BUF_LEN];
-    int fd = open(PCM_DEVICE, O_RDONLY);
-    if(fd < 0){
-        perror("開啟PCM_DEVICE failed!");
-        exit(EXIT_FAILURE);
-    }
-    int mic_fifo = open(FIFO_NAME, open_mode);
-    if(mic_fifo == -1){
-        perror("Fifo 開啟失敗!");
-        exit(EXIT_FAILURE);
-    }
-    int res;
-    res = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
-    if(res != 0){
-        perror("Thread 設定失敗");
-        exit(EXIT_FAILURE);
-    }
-    res = pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
-    if(res != 0){
-        perror("Thread 設定cancel type失敗");
-        exit(EXIT_FAILURE);
-    }
-    if(fd < 0){
-        perror("開啟PCM_DEVICE failed!");
-        return NULL;
-    }
-    bg_record_running = 0;
-    int record_ms = 0;
+void signal_handler(int sig) {
+    printf("\n🛑 收到 Ctrl+C，中斷中...\n");
+    keep_running = 0;
+    kill(-getpgrp(), SIGTERM); // 改成殺整個 process group
+    _exit(130); // 強制直接結束 control 本身
+}
 
-    if((res = ioctl(mic_fd,IOC_MIC_START_RECORD,NULL)) <0){
-        printf("ioctl mic 手動錄音開啟失敗!"); exit(-1);
-    };
-    while (record_ms < 5000){
+void cleanup_on_exit() {
+    printf("\n🧹 清理中...\n");
 
-        int voice = read(fd, mic_buf, sizeof(mic_buf));   //從I2S 讀取音訊資料
-        if (voice > 0) {     //搬移資料去FIFO 做指令辨識
-                write(mic_fifo,mic_buf,sizeof(mic_buf));
-        }
-        pthread_testcancel();  // 可中斷點
-        usleep(100000);        // 讀取間隔 100ms
-        record_ms += 100;
+    if (mic_fd >= 0) {
+        ioctl(mic_fd, 0, 0);
+        close(mic_fd);
     }
 
-    close(fd);
-    close(mic_fifo);
-    bg_record_running = 1;
-    if((res = ioctl(mic_fd,IOC_MIC_STOP_RECORD,NULL)) < 0){
-        printf("ioctl mic 手動錄音關閉失敗!"); exit(-1);
+    unlink(FIFO_NAME);
+    printf("✅ 清理完成，退出\n");
+}
+
+void safe_sleep(int seconds) {
+    struct timespec req = {seconds, 0};
+    while (nanosleep(&req, &req) == -1 && errno == EINTR) {
+        if (!keep_running) break;
     }
-    pthread_exit(0);
 }
