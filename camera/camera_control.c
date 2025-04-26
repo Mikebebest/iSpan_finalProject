@@ -40,6 +40,8 @@ int main() {
                 width, height);
             system(cmd);
 
+            write(client_fd, "OK\n", 3); // 新增：先傳 OK
+
             int img_fd = open("output.jpg", O_RDONLY);
             if (img_fd >= 0) {
                 char img_buf[4096];
