@@ -1,0 +1,15 @@
+#ifndef SG90_IOCTL_H
+#define SG90_IOCTL_H
+
+#define SG90_MAGIC 'm'
+
+#define SG90_MOVE_UP     _IO(SG90_MAGIC, 0)
+#define SG90_MOVE_DOWN   _IO(SG90_MAGIC, 1)
+#define SG90_MOVE_LEFT   _IO(SG90_MAGIC, 2)
+#define SG90_MOVE_RIGHT  _IO(SG90_MAGIC, 3)
+#define SG90_MOVE_TOP    _IO(SG90_MAGIC, 4)
+#define SG90_MOVE_BUTTOM _IO(SG90_MAGIC, 5)
+#define SG90_MOVE_RIGHT_ _IO(SG90_MAGIC, 6)
+#define SG90_MOVE_LEFT_  _IO(SG90_MAGIC, 7)
+
+#endif
