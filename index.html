@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Voice & Servo Control Monitor</title>
+<style>
+  body { font-family: sans-serif; padding: 20px; }
+  button { margin: 4px; padding: 8px 12px; }
+  #photo { width: 50%; border: 1px solid #ccc; margin-top: 10px; display: none; }
+  #status { color: green; font-weight: bold; margin-top: 20px; }
+  #text { font-size: 24px; font-weight: bold; margin-top: 20px; display: none; color: black; }
+  #alert { font-size: 32px; font-weight: bold; margin-top: 20px; display: none; }
+  .emergency { color: red; }
+  .light-on { color: dodgerblue; }
+  .light-off { color: orange; }
+</style>
+</head>
+<body>
+<h1>Voice & Servo Control Monitor</h1>
+
+<!-- Servo 控制區 -->
+<h2>🤖 Servo Control</h2>
+<button onclick="sendMove('up')">⯅ Up</button>
+<button onclick="sendMove('down')">⯆ Down</button>
+<button onclick="sendMove('left')">⯇ Left</button>
+<button onclick="sendMove('right')">⯈ Right</button>
+
+<!-- 拍照設定區 -->
+<h2>📸 拍照設定</h2>
+Width: <input type="number" id="width" value="1280" style="width:80px;">
+Height: <input type="number" id="height" value="720" style="width:80px;">
+<br><br>
+<button onclick="capture()">📸 Capture</button>
+
+<!-- 顯示最新照片 -->
+<h2>📸 最新照片</h2>
+<img id="photo" src="">
+
+<!-- 語音監聽狀態 -->
+<h2>🎤 語音辨識狀態</h2>
+<p id="status">🟢 背景監聽中...</p>
+<p id="alert"></p>
+<p id="text"></p>
+
+<script>
+const serverIP = location.hostname;
+const ws = new WebSocket(`ws://${serverIP}:8081`);
+const photo = document.getElementById('photo');
+const textElement = document.getElementById('text');
+const alertElement = document.getElementById('alert');
+
+ws.onopen = () => console.log('✅ WebSocket connected');
+
+ws.onmessage = (event) => {
+  const text = event.data.trim().toLowerCase();
+  console.log("收到語音文字:", text);
+
+  alertElement.style.display = 'none';
+  textElement.style.display = 'block';
+  textElement.textContent = `🎤 辨識到: ${text}`;
+  textElement.style.color = "black";
+
+  if (text.includes("help")) {
+    showAlert("🚨 EMERGENCY! 緊急狀況 🚨", 'emergency');
+    sendCommand("emergency");
+  } else if (text.includes("hello")) {
+    showAlert("💡 開燈指令已送出！", 'light-on');
+    sendCommand("light on");
+  } else if (text.includes("bye bye")) {
+    showAlert("💤 關燈指令已送出！", 'light-off');
+    sendCommand("light off");
+  }
+};
+
+function sendMove(dir) {
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(`move ${dir}`);
+  }
+}
+
+function capture() {
+  const width  = document.getElementById('width').value;
+  const height = document.getElementById('height').value;
+  photo.style.display = 'none';
+
+  fetch(`http://${serverIP}:8080/capture?width=${width}&height=${height}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        photo.src = `/uploads/${data.filename}?t=${Date.now()}`;
+        photo.onload = () => photo.style.display = 'block';
+      }
+    })
+    .catch(() => photo.style.display = 'none');
+}
+
+function sendCommand(cmd) {
+  fetch(`http://${serverIP}:8080/send?cmd=${encodeURIComponent(cmd)}`)
+    .then(res => {
+      if (res.ok) console.log(`✅ 指令 ${cmd} 已送出`);
+      else console.error(`❌ 指令 ${cmd} 發送失敗`);
+    })
+    .catch(err => console.error(`❌ 指令發送錯誤:`, err));
+}
+
+function showAlert(message, cssClass) {
+  alertElement.style.display = 'block';
+  alertElement.textContent = message;
+  alertElement.className = cssClass;
+}
+
+// 支援鍵盤箭頭按鍵移動
+document.addEventListener('keydown', e => {
+  switch (e.key) {
+    case 'ArrowUp':    sendMove('up');    break;
+    case 'ArrowDown':  sendMove('down');  break;
+    case 'ArrowLeft':  sendMove('left');  break;
+    case 'ArrowRight': sendMove('right'); break;
+  }
+});
+</script>
+</body>
+</html>
