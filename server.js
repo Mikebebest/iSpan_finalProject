@@ -9,7 +9,7 @@ const app            = express();
 const PORT_HTTP      = 8080;
 const PORT_WS        = 8081;
 const PORT_TCP_TEXT  = 5000;
-const CLIENT_PI_IP   = '192.168.51.182';
+const CLIENT_PI_IP   = '';    //填上host ip
 const CLIENT_PI_PORT = 7000;
 const uploadDir      = path.join(__dirname, 'uploads');
 
