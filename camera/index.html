@@ -6,44 +6,65 @@
 <style>
   body { font-family: sans-serif; padding: 20px; }
   #photo { width: 50%; border: 1px solid #ccc; margin-top: 10px; display: none; }
+  button { margin: 4px; padding: 8px 12px; }
 </style>
 </head>
 <body>
-  <h1>Voice Control Monitor</h1>
+  <h1>Voice & Servo Control</h1>
+
+  <h2>🤖 Servo Control</h2>
+  <button onclick="sendMove('up')">⯅ Up</button>
+  <button onclick="sendMove('down')">⯆ Down</button>
+  <button onclick="sendMove('left')">⯇ Left</button>
+  <button onclick="sendMove('right')">⯈ Right</button>
 
   <h2>📸 拍照設定</h2>
   Width: <input type="number" id="width" value="1280" style="width:80px;">
   Height: <input type="number" id="height" value="720" style="width:80px;">
   <br><br>
-  <button onclick="capture()">📸 拍照</button>
+  <button onclick="capture()">📸 Capture</button>
 
   <h2>📸 最新照片</h2>
   <img id="photo" src="">
 
 <script>
-const serverIP = "192.168.0.105";
+  const serverIP = location.hostname;
+  const ws = new WebSocket(`ws://${serverIP}:8081`);
+  ws.onopen    = () => console.log('✅ WS connected');
+  ws.onmessage = e => console.log('WS from server:', e.data);
 
-function capture() {
-  const width = document.getElementById('width').value;
-  const height = document.getElementById('height').value;
+  function sendMove(dir) {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(`move ${dir}`);
+    }
+  }
 
-  const photo = document.getElementById('photo');
-  photo.style.display = 'none';
+  function capture() {
+    const width  = document.getElementById('width').value;
+    const height = document.getElementById('height').value;
+    const photo  = document.getElementById('photo');
+    photo.style.display = 'none';
 
-  fetch(`http://${serverIP}:8080/capture?width=${width}&height=${height}`)
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        photo.src = `/uploads/${data.filename}?t=${Date.now()}`;
-        photo.onload = () => {
-          photo.style.display = 'block';
-        };
-      }
-    })
-    .catch(() => {
-      document.getElementById('photo').style.display = 'none';
-    });
-}
+    fetch(`http://${serverIP}:8080/capture?width=${width}&height=${height}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          photo.src = `/uploads/${data.filename}?t=${Date.now()}`;
+          photo.onload = () => photo.style.display = 'block';
+        }
+      })
+      .catch(() => photo.style.display = 'none');
+  }
+
+  // 鍵盤控制
+  document.addEventListener('keydown', e => {
+    switch (e.key) {
+      case 'ArrowUp':    sendMove('up');    break;
+      case 'ArrowDown':  sendMove('down');  break;
+      case 'ArrowLeft':  sendMove('left');  break;
+      case 'ArrowRight': sendMove('right'); break;
+    }
+  });
 </script>
 </body>
 </html>
