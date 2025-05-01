@@ -11,7 +11,7 @@ from vosk import Model, KaldiRecognizer
 FIFO_PATH = "./record/inmp_rec"
 MODEL_PATH = "./model/vosk-model-small-en-us-0.15"
 SAMPLE_RATE = 16000
-SERVER_HOST = "192.168.0.105"
+SERVER_HOST = "192.168.137.78"
 SERVER_PORT = 5000
 
 fifo = None
@@ -68,8 +68,8 @@ def recognize_and_send():
     fifo_fd = os.open(FIFO_PATH, os.O_RDONLY | os.O_NONBLOCK)
     fifo = os.fdopen(fifo_fd, 'rb')
 
+    print(f"📂 正在使用 FIFO 路徑: {FIFO_PATH}")
     print("✅ Vosk 語音辨識已啟動，等待音訊輸入...")
-
     while running:
         try:
             data = fifo.read(4096)
