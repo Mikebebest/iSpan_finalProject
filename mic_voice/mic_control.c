@@ -50,6 +50,7 @@ int main() {
 
     ioctl(mic_fd, IOC_MIC_STOP_RECORD, 2);
     printf("錄音準備.....\n");
+    printf("📂 控制程式寫入 FIFO: %s\n", FIFO_NAME);
     sleep(3);
 
     while (keep_running) {
