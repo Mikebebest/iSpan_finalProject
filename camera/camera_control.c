@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <sys/ioctl.h>
 #include <signal.h>
+#include <arpa/inet.h>
 #include <sys/types.h>
 #include "sg90_ioctl.h"
 
