@@ -1,77 +1,118 @@
 // unified server.js
-
-const express = require('express');
-const net = require('net');
-const fs = require('fs');
-const path = require('path');
-const WebSocket = require('ws');
+const express = require("express");
+const http = require("http");
+const dgram = require("dgram");
+const fs = require("fs");
+const path = require("path");
+const net = require("net");
+const WebSocket = require("ws");
+const mqtt = require("mqtt");
+const socketIo = require("socket.io");
 
 const app = express();
+const server = http.createServer(app);
+const io = socketIo(server);  // ✅ 必須加入 socket.io
+
 const PORT_HTTP = 8080;
 const PORT_WS_VOICE = 8081;
 const PORT_WS_MOVE = 8082;
 const PORT_TCP_VOSK = 5000;
-const CLIENT_PI_IP = '192.168.137.78';
+const PORT_UDP_SENSOR = 5006;
+const uploadDir = path.join(__dirname, "uploads");
+const CLIENT_PI_IP = "192.168.51.182";
 const CLIENT_PI_PORT = 7000;
-const uploadDir = path.join(__dirname, 'uploads');
+const mqttClient = mqtt.connect("mqtt://172.20.10.3:1883");
+const mqttTopic = "picow/control";
 
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 
-// ==== 1. WebSocket: 語音辨識結果推送 ====
-const wss_voice = new WebSocket.Server({ port: PORT_WS_VOICE });
+let historyData = [];
+let lastSavedSecond = null;
+let maxTemp = -Infinity;
+let minTemp = Infinity;
 
-// ==== 2. WebSocket: 接收 move 指令 ====
-const wss_move = new WebSocket.Server({ port: PORT_WS_MOVE });
-wss_move.on('connection', (ws, req) => {
+// ==== WebSocket for 語音辨識推送 ====
+const wssVoice = new WebSocket.Server({ port: PORT_WS_VOICE });
+wssVoice.on("connection", (ws, req) => {
   const ip = req.socket.remoteAddress;
-  console.log(`🔌 WebSocket MOVE 連線建立，來自 ${ip}`);
+  console.log(`🎤 語音 WebSocket 連線來自 ${ip}`);
+  ws.on("close", () => console.log(`🛑 語音 WebSocket 中斷 (${ip})`));
+});
 
-  ws.on('message', message => {
+// ==== WebSocket for 馬達移動指令 ====
+const wssMove = new WebSocket.Server({ port: PORT_WS_MOVE });
+wssMove.on("connection", (ws, req) => {
+  ws.on("message", (message) => {
     const msg = message.toString().trim();
-    console.log(`📨 收到 WebSocket MOVE 訊息: "${msg}"`);
-    if (msg.startsWith('move ')) {
-      const dir = msg.split(' ')[1];
+    if (msg.startsWith("move ")) {
+      const dir = msg.split(" ")[1];
       const client = new net.Socket();
       client.connect(CLIENT_PI_PORT, CLIENT_PI_IP, () => {
-        console.log(`🚗 傳送移動指令給 Pi: move ${dir}`);
         client.write(`move ${dir}\n`);
         client.end();
       });
-      client.on('error', err => console.error('❌ 傳送移動指令失敗:', err.message));
-    } else {
-      console.warn(`⚠️ 不支援的 WebSocket MOVE 指令: ${msg}`);
     }
-  });
-
-  ws.on('error', err => {
-    console.error(`❌ WebSocket MOVE 錯誤 (${ip}):`, err.message);
-  });
-
-  ws.on('close', () => {
-    console.log(`🔌 WebSocket MOVE 連線關閉 (${ip})`);
   });
 });
 
-
-// ==== 3. TCP: Python 傳來語音文字 ====
-const tcpServer = net.createServer(socket => {
-  socket.on('data', data => {
+// ==== TCP for 接收 Python VOSK 結果推送到前端 ====
+const tcpServer = net.createServer((socket) => {
+  console.log("📡 TCP VOSK 客戶端已連線");
+  socket.on("data", (data) => {
     const text = data.toString().trim();
-    console.log('🧠 Recognized:', text);
-    wss_voice.clients.forEach(client => {
+    console.log("🧠 Received from VOSK:", text);
+    wssVoice.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) client.send(text);
     });
   });
+  socket.on("end", () => console.log("📴 TCP VOSK 客戶端斷線"));
 });
 tcpServer.listen(PORT_TCP_VOSK, () => {
-  console.log(`📡 TCP server for VOSK at ${PORT_TCP_VOSK}`);
+  console.log(`✅ TCP VOSK server listening on port ${PORT_TCP_VOSK}`);
 });
 
-// ==== 4. HTTP: 靜態頁面與拍照 ====
-app.use('/uploads', express.static(uploadDir));
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+// ==== Socket.IO for 感測器頁面連線紀錄 ====
+io.on("connection", (socket) => {
+  console.log("🌐 前端感測器頁面已連線 via Socket.IO");
+  socket.on("disconnect", () => {
+    console.log("❌ Socket.IO 客戶端已斷線");
+  });
+});
 
-app.get('/capture', (req, res) => {
+// ==== UDP for 接收感測器資料並推播給前端 ====
+const udpServer = dgram.createSocket("udp4");
+udpServer.on("message", (msg) => {
+  const message = msg.toString();
+  const data = {};
+  message.split("&").forEach((part) => {
+    const [key, value] = part.split("=");
+    data[key] = parseFloat(value);
+  });
+  const now = new Date();
+  data.timestamp = now.toISOString();
+  const sec = now.getSeconds();
+  if (sec !== lastSavedSecond) {
+    lastSavedSecond = sec;
+    historyData.push(data);
+  }
+  if (data.T !== undefined) {
+    if (data.T > maxTemp) maxTemp = data.T;
+    if (data.T < minTemp) minTemp = data.T;
+  }
+  io.emit("sensorData", { ...data, maxTemp, minTemp });
+});
+udpServer.bind(PORT_UDP_SENSOR, () => {
+  console.log(`📡 UDP sensor server listening on port ${PORT_UDP_SENSOR}`);
+});
+
+// ==== HTTP routes ====
+app.use(express.static("public"));
+app.use("/uploads", express.static(uploadDir));
+app.use(express.json());
+
+app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
+
+app.get("/capture", (req, res) => {
   const width = req.query.width || 1280;
   const height = req.query.height || 720;
   const filename = `photo_${Date.now()}.jpg`;
@@ -79,17 +120,16 @@ app.get('/capture', (req, res) => {
 
   const client = new net.Socket();
   client.connect(CLIENT_PI_PORT, CLIENT_PI_IP, () => {
-    console.log(`📸 Sending capture ${width}x${height}`);
     client.write(`capture ${width} ${height}\n`);
   });
 
   let buffer = Buffer.alloc(0);
   let fileStream;
 
-  client.on('data', data => {
+  client.on("data", (data) => {
     buffer = Buffer.concat([buffer, data]);
-    if (!fileStream && buffer.includes('OK\n')) {
-      buffer = buffer.slice(buffer.indexOf('OK\n') + 3);
+    if (!fileStream && buffer.includes("OK\n")) {
+      buffer = buffer.slice(buffer.indexOf("OK\n") + 3);
       fileStream = fs.createWriteStream(filepath);
       if (buffer.length) fileStream.write(buffer);
     } else if (fileStream) {
@@ -97,16 +137,36 @@ app.get('/capture', (req, res) => {
     }
   });
 
-  client.on('end', () => {
-    if (fileStream) {
-      fileStream.end(() => res.send({ success: true, filename }));
-    } else res.status(500).send({ success: false });
+  client.on("end", () => {
+    if (fileStream) fileStream.end(() => res.send({ success: true, filename }));
+    else res.status(500).send({ success: false });
   });
 
-  client.on('error', err => {
-    console.error('❌ Capture error:', err);
+  client.on("error", (err) => {
+    console.error("❌ Capture error:", err);
     res.status(500).send({ success: false });
   });
 });
 
-app.listen(PORT_HTTP, () => console.log(`🌐 HTTP server running at http://localhost:${PORT_HTTP}`));
+app.post("/led-on", (req, res) => {
+  mqttClient.publish(mqttTopic, "camera");
+  res.send("OK");
+});
+
+app.get("/history", (req, res) => {
+  res.json(historyData);
+});
+
+app.get("/history/:hour/:minute", (req, res) => {
+  const { hour, minute } = req.params;
+  const filtered = historyData.filter((entry) => {
+    const ts = new Date(entry.timestamp);
+    return ts.getHours() === parseInt(hour) && ts.getMinutes() === parseInt(minute);
+  });
+  res.json(filtered);
+});
+
+// 啟動 HTTP Server
+server.listen(PORT_HTTP, () => {
+  console.log(`🌐 HTTP+WS server running at http://localhost:${PORT_HTTP}`);
+});
