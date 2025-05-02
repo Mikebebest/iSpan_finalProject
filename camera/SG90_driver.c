@@ -26,8 +26,8 @@ static dev_t sg90_num;
 static struct task_struct *pwm_updown;
 static struct task_struct *pwm_leftright;
 
-static int gpio_updown = 583;  //gpio pin 12
-static int gpio_leftright = 584; //gpio pin 13
+static int gpio_updown = 585;  //gpio pin 14
+static int gpio_leftright = 586; //gpio pin 15
 
 static int current_updown_ns = 1.5 * 1000 * 1000;   //init angle of 90 degree by 1.5ms
 static int target_updown_ns = 1.5 * 1000 * 1000;
@@ -154,19 +154,7 @@ static int __init sg90_init(void){
         return -EINVAL;
     }
 
-    /*
-    int i;
-    for (i = 0; i < 50; i++) {
-        gpio_set_value(gpio_updown, 1);
-        udelay(current_updown_ns / 1000);
-        gpio_set_value(gpio_updown, 0);
-        udelay((PWM_PERIOD_NS - current_updown_ns) / 1000);
-        gpio_set_value(gpio_leftright, 1);
-        udelay(current_leftright_ns / 1000);
-        gpio_set_value(gpio_leftright, 0);
-        udelay((PWM_PERIOD_NS - current_leftright_ns) / 1000);
-    }
-    */
+
     current_updown_ns    = target_updown_ns    = 1500 * 1000;
     current_leftright_ns = target_leftright_ns = 1500 * 1000;
     
@@ -207,8 +195,10 @@ static void __exit sg90_exit(void){
 
 module_init(sg90_init);
 module_exit(sg90_exit);
-MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Mike Liang");
 MODULE_DESCRIPTION("Control SG90 to different degree");
+MODULE_VERSION("1.0.0");
+MODULE_LICENSE("GPL");
 
 
 
