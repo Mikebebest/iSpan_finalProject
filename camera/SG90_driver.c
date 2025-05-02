@@ -145,12 +145,12 @@ static int __init sg90_init(void){
     device_create(sg90_class, NULL, sg90_num, NULL, DEVICE_NAME);
 
     if (gpio_request(gpio_updown, "SG90_UPDOWN") || gpio_direction_output(gpio_updown, 0)) {
-        pr_err("Failed to request or configure GPIO12\n");
+        pr_err("Failed to request or configure GPIO14\n");
         return -EINVAL;
     }
     if (gpio_request(gpio_leftright, "SG90_LEFTRIGHT") || gpio_direction_output(gpio_leftright, 0)) {
         gpio_free(gpio_updown);
-        pr_err("Failed to request or configure GPIO13\n");
+        pr_err("Failed to request or configure GPIO15\n");
         return -EINVAL;
     }
 
@@ -197,7 +197,7 @@ module_init(sg90_init);
 module_exit(sg90_exit);
 MODULE_AUTHOR("Mike Liang");
 MODULE_DESCRIPTION("Control SG90 to different degree");
-MODULE_VERSION("1.0.0");
+MODULE_VERSION("1.0.1");
 MODULE_LICENSE("GPL");
 
 
