@@ -49,8 +49,8 @@ typedef struct{
 #define rioSET ((rioregs*)(RIOBase + 0x2000 / 4))
 #define rioCLR ((rioregs*)(RIOBase + 0x3000 / 4))
 
-uint32_t pin_1 = 23;   //red light = recording
-uint32_t pin_2 = 24;   //green light = not recording
+uint32_t pin_1 = 2;   //red light = recording
+uint32_t pin_2 = 3;   //green light = not recording
 uint32_t fn = 5;
 
 static int mic_open(struct inode* inode, struct file *file){
@@ -77,22 +77,6 @@ static int mic_close(struct inode* inode, struct file *file){
     return 0;
 }
 
-/*
-static ssize_t mic_write(struct file *fp, const char *buff, size_t len, loff_t *offset){
-    int val = 0;
-    char buffer[80];
-    if(copy_from_user(buffer, buff, len) != 0){
-        return -EFAULT;
-    }
-    if (sscanf(buffer, "%d", &val) == 1) {
-        led_1_2 = val;
-        return len;
-    }
-
-    pr_err("mic_write: invalid input, expected number\n");
-    return -EINVAL;
-}
-*/
 
 static long mic_ioctl (struct file *file, unsigned int cmd, unsigned long ioctl_param){
     int val = (int)ioctl_param;
@@ -125,7 +109,6 @@ static long mic_ioctl (struct file *file, unsigned int cmd, unsigned long ioctl_
 }
 
 static struct file_operations fops = {
-//    .write = mic_write,
     .open  = mic_open,
     .release = mic_close,
     .unlocked_ioctl = mic_ioctl,
@@ -187,5 +170,8 @@ static void __exit mic_exit(void){
 
 module_init(mic_init);
 module_exit(mic_exit);
+MODULE_AUTHOR("Mike Liang");
+MODULE_DESCRIPTIONI("control two led light when the mic is recording");
+MODULE_VERSION("1.0.0");
 MODULE_LICENSE("GPL");
 
