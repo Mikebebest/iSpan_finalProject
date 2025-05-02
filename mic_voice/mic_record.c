@@ -55,7 +55,7 @@ uint32_t fn = 5;
 
 static int mic_open(struct inode* inode, struct file *file){
     printk("開啟 mic!! \n");
-    printk("開啟led 設定 GPIO23 24 as RIO\n");
+    printk("開啟led 設定 GPIO2、3 as RIO\n");
     writel(fn, &GPIO[pin_1].ctrl);
     writel(fn, &GPIO[pin_2].ctrl);
     writel(0x10, &pad[pin_1]);
@@ -68,7 +68,7 @@ static int mic_open(struct inode* inode, struct file *file){
 static int mic_close(struct inode* inode, struct file *file){
     u32 val;
 
-    printk("關閉 GPIO 23 24 設定\n");
+    printk("關閉 GPIO 2 and 3 設定\n");
     printk("關閉 mic!! \n");
     val = readl(&rioSET->OE);
     val &= ~(1<<pin_1);
@@ -171,7 +171,7 @@ static void __exit mic_exit(void){
 module_init(mic_init);
 module_exit(mic_exit);
 MODULE_AUTHOR("Mike Liang");
-MODULE_DESCRIPTIONI("control two led light when the mic is recording");
-MODULE_VERSION("1.0.0");
+MODULE_DESCRIPTION("control two led light when the mic is recording");
+MODULE_VERSION("1.0.1");
 MODULE_LICENSE("GPL");
 
