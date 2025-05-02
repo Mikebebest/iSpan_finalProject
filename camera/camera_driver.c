@@ -45,7 +45,7 @@ static long camera_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
         printk(KERN_INFO "Camera: Set resolution %ux%u\n", res.width, res.height);
 
         if (res.width == 1280 && res.height == 720) {
-            camera_i2c_write(0x3808, 0x05);
+            camera_i2c_write(0x3808, 0x05);             // The address of ov5647 of changing resolution: begin from0x3808
             camera_i2c_write(0x3809, 0x00);
             camera_i2c_write(0x380a, 0x02);
             camera_i2c_write(0x380b, 0xD0);
@@ -123,6 +123,7 @@ static void __exit camera_exit(void)
 module_init(camera_init);
 module_exit(camera_exit);
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("YourName");
+MODULE_AUTHOR("Mike Liang");
 MODULE_DESCRIPTION("Simple Camera Resolution Control Driver with I2C - Raspberry Pi Kernel Compatible");
+MODULE_VERSION("1.0.0");
+MODULE_LICENSE("GPL");
