@@ -1,0 +1,18 @@
+/dts-v1/;
+/plugin/;
+
+/*Defines GPIO_ACTIVE_LOW */
+#include "/root/linux-rpi-6.6.y/include/dt-bindings/gpio/gpio.h"
+
+/{
+		compatible = "brcm,bcm2712";
+		fragment@0{
+					target-path="/";
+					__overlay__{
+								my-buzzer{
+											compatible = "buzzer-gpio";
+											gpios = <&rp1_gpio 4 GPIO_ACTIVE_HIGH>;
+										};
+								};
+				};
+};
