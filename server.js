@@ -64,6 +64,28 @@ const tcpServer = net.createServer((socket) => {
     wssVoice.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) client.send(text);
     });
+     // 🔔 當為 hello 或 help，推播前端後再執行對應控制
+    if (text === "hello") {
+      mqttClient.publish(mqttTopic, "camera");
+      console.log("✅ 執行 LED 開啟指令 (hello)");
+    } else if (text === "help") {
+      const gpioPin = 4;
+      const gpioPath = `/sys/class/gpio/gpio${gpioPin}`;
+      if (!fs.existsSync(gpioPath)) {
+        fs.writeFileSync("/sys/class/gpio/export", gpioPin.toString());
+        fs.writeFileSync(`${gpioPath}/direction`, "out");
+      }
+      let count = 0;
+      const loop = setInterval(() => {
+        fs.writeFileSync(`${gpioPath}/value`, "1");
+        setTimeout(() => {
+          fs.writeFileSync(`${gpioPath}/value`, "0");
+        }, 2000);
+        count++;
+        if (count >= 5) clearInterval(loop);
+      }, 4000);
+      console.log("🚨 執行 GPIO4 緊急閃爍 (help)");
+    }
   });
   socket.on("end", () => console.log("📴 TCP VOSK 客戶端斷線"));
 });
