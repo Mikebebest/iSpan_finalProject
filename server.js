@@ -69,17 +69,22 @@ const tcpServer = net.createServer((socket) => {
       mqttClient.publish(mqttTopic, "camera");
       console.log("✅ 執行 LED 開啟指令 (hello)");
     } else if (text === "help") {
-      const gpioPin = 4;
-      const gpioPath = `/sys/class/gpio/gpio${gpioPin}`;
-      if (!fs.existsSync(gpioPath)) {
-        fs.writeFileSync("/sys/class/gpio/export", gpioPin.toString());
-        fs.writeFileSync(`${gpioPath}/direction`, "out");
+      const gpioPath = "/dev/buzzer";
+      function writeBuzzer(value) {
+        try {
+          const fd = fs.openSync(gpioPath, 'w');
+          fs.writeSync(fd, value);
+          fs.closeSync(fd);
+        } catch (err) {
+          console.error("寫入 buzzer 失敗:", err);
+        }
       }
+      
       let count = 0;
       const loop = setInterval(() => {
-        fs.writeFileSync(`${gpioPath}/value`, "1");
+        writeBuzzer("1");
         setTimeout(() => {
-          fs.writeFileSync(`${gpioPath}/value`, "0");
+          writeBuzzer("0");
         }, 2000);
         count++;
         if (count >= 5) clearInterval(loop);
