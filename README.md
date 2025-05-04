@@ -1,2 +1,2 @@
 # iSpan_finalProject
-The system of robot human voice recognize and  photo capture
+The system of remote control car about human voice recognization and photo capture
