@@ -19,12 +19,15 @@ const PORT_WS_MOVE = 8082;
 const PORT_TCP_VOSK = 5000;
 const PORT_UDP_SENSOR = 5006;
 const uploadDir = path.join(__dirname, "uploads");
-const CLIENT_PI_IP = "192.168.51.182";
+const backupDir = path.join(__dirname, "uploads/backup")
+const CLIENT_PI_IP = "192.168.51.130";
 const CLIENT_PI_PORT = 7000;
-const mqttClient = mqtt.connect("mqtt://172.20.10.3:1883");
+const mqttClient = mqtt.connect("mqtt://192.168.51.130:1883");
 const mqttTopic = "picow/control";
+const MOTOR_DEVICE = '/dev/motor_ctrl';
 
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
+if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir);
 
 let historyData = [];
 let lastSavedSecond = null;
@@ -143,7 +146,7 @@ app.get("/capture", (req, res) => {
   const width = req.query.width || 1280;
   const height = req.query.height || 720;
   const filename = `photo_${Date.now()}.jpg`;
-  const filepath = path.join(uploadDir, filename);
+  const filepath = path.join(backupDir, filename);
 
   const client = new net.Socket();
   client.connect(CLIENT_PI_PORT, CLIENT_PI_IP, () => {
@@ -192,6 +195,18 @@ app.get("/history/:hour/:minute", (req, res) => {
   });
   res.json(filtered);
 });
+
+app.post('/control', (req, res) => {
+    const { command } = req.body;
+    //console.log(`Received command: ${command}`);
+    fs.writeFile(MOTOR_DEVICE, command.toString(), (err) => {
+      if (err) {
+        console.error('Failed to write to motor device:', err);
+        return res.status(500).send('Failed to control motor');
+      }
+      res.send('OK');
+    });
+  });
 
 // 啟動 HTTP Server
 server.listen(PORT_HTTP, () => {
