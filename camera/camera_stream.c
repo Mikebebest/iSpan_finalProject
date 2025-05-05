@@ -113,7 +113,7 @@ void *stream_loop(void *arg) {
 }
 
 void sigint_handler(int signo) {
-    printf("\n🛑 Received signal, exiting...\n");
+    printf("\nReceived signal, exiting...\n");
     running = 0;
     stream_running = 0;
     int sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -183,7 +183,7 @@ void *tcp_server_loop(void *arg) {
     bind(server_fd, (struct sockaddr *)&addr, sizeof(addr));
     listen(server_fd, 5);
 
-    printf("🎯 Pi Control Server listening on port %d\n", PORT);
+    printf("Pi Control Server listening on port %d\n", PORT);
     while (running) {
         client_fd = accept(server_fd, (struct sockaddr *)&addr, &addrlen);
         memset(buffer, 0, sizeof(buffer));
@@ -233,14 +233,14 @@ void handle_capture(const char *args, int client_fd){
 
     unsigned int w, h;
     sscanf(args,"%u %u",&w,&h);
-    printf("📷 Capture request: %ux%u\n", w, h);
+    printf("Capture request: %ux%u\n", w, h);
     int cam_fd = open(DEV_CAM, O_RDWR);
     if (cam_fd >= 0) {
         struct cam_resolution res = { .width = w, .height = h };
         if (ioctl(cam_fd, CAM_IOCTL_SET_RESOLUTION, &res) < 0) {
             perror("Failed to set resolution via ioctl");
         } else {
-            printf("✔️ Resolution set via ioctl\n");
+            printf("Resolution set via ioctl\n");
         }
         close(cam_fd);
     } else {
