@@ -183,12 +183,12 @@
 
     wsVoice.onmessage = (event) => {
       const text = event.data.trim().toLowerCase();
-      document.getElementById("text").textContent = `🎤 辨識到: ${text}`;
+      document.getElementById("text").textContent = ` 辨識到: ${text}`;
       document.getElementById("text").style.display = 'block';
 
-      if (text.includes("help")) showAlert("🚨 緊急狀況！", 'red');
-      else if (text.includes("hello")) showAlert("💡 已送出開燈指令！", 'green');
-      else if (text.includes("bye bye")) showAlert("💤 已送出關燈指令！", 'gray');
+      if (text.includes("help")) showAlert("緊急狀況！", 'red');
+      else if (text.includes("hello")) showAlert("已送出開燈指令！", 'green');
+      else if (text.includes("bye bye")) showAlert("已送出關燈指令！", 'gray');
     };
 
     function showAlert(msg, color) {
