@@ -32,7 +32,7 @@ int main() {
 
     int lock_fd = open("/tmp/mic_control.lock", O_CREAT | O_RDWR, 0666);
     if (flock(lock_fd, LOCK_EX | LOCK_NB) != 0) {
-        printf("🛑 mic_control4 已在執行中，結束啟動\n");
+        printf("mic_control4 已在執行中，結束啟動\n");
         exit(1);
     }
 
@@ -44,13 +44,13 @@ int main() {
 
     mic_fd = open(MIC_DEVICE, O_RDWR);
     if (mic_fd < 0) {
-        perror("❌ 無法開啟 MIC 裝置");
+        perror("無法開啟 MIC 裝置");
         return -1;
     }
 
     ioctl(mic_fd, IOC_MIC_STOP_RECORD, 2);
     printf("錄音準備.....\n");
-    printf("📂 控制程式寫入 FIFO: %s\n", FIFO_NAME);
+    printf("控制程式寫入 FIFO: %s\n", FIFO_NAME);
     sleep(3);
 
     while (keep_running) {
@@ -61,7 +61,7 @@ int main() {
         ioctl(mic_fd,IOC_MIC_START_RECORD,1);
         if (child_pid == 0) {
             execlp("sh", "sh", "-c", "arecord -D plughw:2,0 -f S16_LE -c 1 -r 16000 -t raw -q | tee ./record/inmp_rec > /dev/null", NULL);
-            perror("❌ arecord|tee exec 失敗");
+            perror("arecord|tee exec 失敗");
             exit(1);
         }
         
@@ -91,7 +91,7 @@ int main() {
         if (fp) {
             fprintf(fp, "__STOP__\n");
             fclose(fp);
-            printf("📤 傳送 __STOP__ 至 Python\n");
+            printf("傳送 __STOP__ 至 Python\n");
         }
 
         for (int i = 0; i < 10; i++) {
@@ -115,24 +115,24 @@ int main() {
 void create_fifo_if_need() {
     if (access(FIFO_NAME, F_OK) == -1) {
         if (mkfifo(FIFO_NAME, 0777) != 0) {
-            perror("❌ 建立 FIFO 失敗");
+            perror("建立 FIFO 失敗");
             exit(EXIT_FAILURE);
         }
-        printf("✅ 建立 FIFO: %s\n", FIFO_NAME);
+        printf("建立 FIFO: %s\n", FIFO_NAME);
     } else {
         chmod(FIFO_NAME, 0777);
     }
 }
 
 void signal_handler(int sig) {
-    printf("\n🛑 收到 Ctrl+C，中斷中...\n");
+    printf("\n收到 Ctrl+C，中斷中...\n");
     keep_running = 0;
     kill(-getpgrp(), SIGTERM); // 改成殺整個 process group
     _exit(130); // 強制直接結束 control 本身
 }
 
 void cleanup_on_exit() {
-    printf("\n🧹 清理中...\n");
+    printf("\n清理中...\n");
 
     if (mic_fd >= 0) {
         ioctl(mic_fd, 0, 0);
@@ -140,7 +140,7 @@ void cleanup_on_exit() {
     }
 
     unlink(FIFO_NAME);
-    printf("✅ 清理完成，退出\n");
+    printf("清理完成，退出\n");
 }
 
 void safe_sleep(int seconds) {
