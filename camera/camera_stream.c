@@ -14,6 +14,7 @@
 #include <pthread.h>
 #include <netinet/in.h>
 #include "sg90_ioctl.h"
+#include "camera_ioctl.h"
 
 #define OUTPUT_PATH "./uploads/output.jpg"
 #define SNAPSHOT_DIR "./uploads/snapshots"
@@ -21,6 +22,7 @@
 #define TAKE_SNAPSHOT_FLAG "take_snapshot.flag"
 #define PORT 7000
 #define DEV_SG "/dev/sg90"
+#define DEV_CAM "/dev/my_camera"
 
 volatile sig_atomic_t running = 1;
 volatile sig_atomic_t stream_running = 1;
@@ -232,6 +234,18 @@ void handle_capture(const char *args, int client_fd){
     unsigned int w, h;
     sscanf(args,"%u %u",&w,&h);
     printf("📷 Capture request: %ux%u\n", w, h);
+    int cam_fd = open(DEV_CAM, O_RDWR);
+    if (cam_fd >= 0) {
+        struct cam_resolution res = { .width = w, .height = h };
+        if (ioctl(cam_fd, CAM_IOCTL_SET_RESOLUTION, &res) < 0) {
+            perror("Failed to set resolution via ioctl");
+        } else {
+            printf("✔️ Resolution set via ioctl\n");
+        }
+        close(cam_fd);
+    } else {
+        perror("Failed to open camera device");
+    }
     time_t now = time(NULL);
     struct tm *t = localtime(&now);
     char filename[256];
