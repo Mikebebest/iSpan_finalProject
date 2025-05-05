@@ -34,11 +34,11 @@ let lastSavedSecond = null;
 let maxTemp = -Infinity;
 let minTemp = Infinity;
 
-// ==== WebSocket for 語音辨識推送 ====
+// ----------------- WebSocket for 語音辨識推送 ---------------------------
 const wssVoice = new WebSocket.Server({ port: PORT_WS_VOICE });
 wssVoice.on("connection", (ws, req) => {
   const ip = req.socket.remoteAddress;
-  console.log(`🎤 語音 WebSocket 連線來自 ${ip}`);
+  console.log(` 語音 WebSocket 連線來自 ${ip}`);
   ws.on("close", () => console.log(`🛑 語音 WebSocket 中斷 (${ip})`));
 });
 
@@ -58,19 +58,19 @@ wssMove.on("connection", (ws, req) => {
   });
 });
 
-// ==== TCP for 接收 Python VOSK 結果推送到前端 ====
+// --------- TCP for 接收 Python VOSK 結果推送到前端 -------------
 const tcpServer = net.createServer((socket) => {
-  console.log("📡 TCP VOSK 客戶端已連線");
+  console.log("TCP VOSK 客戶端已連線");
   socket.on("data", (data) => {
     const text = data.toString().trim();
-    console.log("🧠 Received from VOSK:", text);
+    console.log("Received from VOSK:", text);
     wssVoice.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) client.send(text);
     });
-     // 🔔 當為 hello 或 help，推播前端後再執行對應控制
+     //  當為 hello 或 help，推播前端後再執行對應控制
     if (text === "hello") {
       mqttClient.publish(mqttTopic, "camera");
-      console.log("✅ 執行 LED 開啟指令 (hello)");
+      console.log("執行 LED 開啟指令 (hello)");
     } else if (text === "help") {
       const gpioPath = "/dev/buzzer";
       function writeBuzzer(value) {
@@ -92,20 +92,20 @@ const tcpServer = net.createServer((socket) => {
         count++;
         if (count >= 5) clearInterval(loop);
       }, 4000);
-      console.log("🚨 執行 GPIO4 緊急閃爍 (help)");
+      console.log(" 執行 GPIO4 緊急閃爍 (help)");
     }
   });
   socket.on("end", () => console.log("📴 TCP VOSK 客戶端斷線"));
 });
 tcpServer.listen(PORT_TCP_VOSK, () => {
-  console.log(`✅ TCP VOSK server listening on port ${PORT_TCP_VOSK}`);
+  console.log(`TCP VOSK server listening on port ${PORT_TCP_VOSK}`);
 });
 
 // ==== Socket.IO for 感測器頁面連線紀錄 ====
 io.on("connection", (socket) => {
-  console.log("🌐 前端感測器頁面已連線 via Socket.IO");
+  console.log("前端感測器頁面已連線 via Socket.IO");
   socket.on("disconnect", () => {
-    console.log("❌ Socket.IO 客戶端已斷線");
+    console.log("Socket.IO 客戶端已斷線");
   });
 });
 
@@ -173,7 +173,7 @@ app.get("/capture", (req, res) => {
   });
 
   client.on("error", (err) => {
-    console.error("❌ Capture error:", err);
+    console.error("Capture error:", err);
     res.status(500).send({ success: false });
   });
 });
@@ -210,5 +210,5 @@ app.post('/control', (req, res) => {
 
 // 啟動 HTTP Server
 server.listen(PORT_HTTP, () => {
-  console.log(`🌐 HTTP+WS server running at http://localhost:${PORT_HTTP}`);
+  console.log(`HTTP+WS server running at http://localhost:${PORT_HTTP}`);
 });
