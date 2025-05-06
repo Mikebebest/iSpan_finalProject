@@ -56,7 +56,7 @@ def recognize_and_send():
         return
 
     model = Model(MODEL_PATH)
-    recognizer = KaldiRecognizer(model, SAMPLE_RATE)
+    recognizer = KaldiRecognizer(model, SAMPLE_RATE, '["hello","hi","open","close","help","bye","[unk]"]')
 
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -86,18 +86,17 @@ def recognize_and_send():
                 result = json.loads(recognizer.Result())
                 final_text = result.get("text", "").strip().lower()
 
-                if final_text:
+                if final_text and final_text != "[unk]":
                     print(f"辨識結果: '{final_text}'")
-
-                    if final_text in ALLOWED_COMMANDS:
-                        print(f"符合指令，傳送到 Server: '{final_text}'")
+                    print(f"符合指令，傳送到 Server: '{final_text}'")
                         try:
                             sock.sendall(final_text.encode("utf-8"))
                         except BrokenPipeError:
                             print("Server socket 中斷，停止傳送")
                             break
-                    else:
-                        print(f"忽略非指令: '{final_text}'")
+                    
+                else:
+                    print(f"忽略非指令: '{final_text}'")
             else:
                 # 可以選擇是否要顯示 partial（暫時先不顯示）
                 pass
