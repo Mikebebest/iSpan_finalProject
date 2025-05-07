@@ -6,6 +6,8 @@
 #include <linux/io.h>
 #include <linux/uaccess.h>
 #include <linux/cdev.h>
+#include <linux/kdev_t.h>
+#include <linux/namei.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
@@ -23,6 +25,17 @@ static dev_t dev_num;
 static int buzzer_on_off = 0;
 
 
+static void check_dev_buzzer_node(void)
+{
+    struct path path;
+    if (kern_path("/dev/buzzer", LOOKUP_FOLLOW, &path) == 0) {
+        struct inode *inode = d_backing_inode(path.dentry);
+        if (!S_ISCHR(inode->i_mode)) {
+            printk(KERN_WARNING "[BUZZER] /dev/buzzer 已存在但不是 char device，建議手動刪除\n");
+        }
+        path_put(&path);
+    }
+}
 
 static int buzzer_open(struct inode *inode, struct file *file){
     printk("buzzer 開啟\n");
@@ -32,24 +45,32 @@ static int buzzer_close(struct inode *inode, struct file *file){
     printk("buzzer 關閉\n");
     return 0;
 }
-static ssize_t buzzer_write(struct file *fp, const char *buffer, size_t len, loff_t *off)
+static ssize_t buzzer_write(struct file *fp, const char __user *buffer, size_t len, loff_t *off)
 {
-    int bytes_written = 0;
-    char pwbuf[80];
+    char pwbuf[80] = {0};  
+    int val;
 
-    if(copy_from_user(pwbuf, buffer, len) !=0 ){
-        printk("buffer write(): len:%lu\n", len);
+    if (len >= sizeof(pwbuf))  // 避免溢出
+        return -EINVAL;
+
+    if (copy_from_user(pwbuf, buffer, len) != 0) {
+        printk(KERN_WARNING "buzzer: copy_from_user failed\n");
         return -EFAULT;
     }
-    sscanf(pwbuf,"%d",&buzzer_on_off);
-    if( buzzer_on_off)
+
+    pwbuf[len] = '\0';  
+
+    if (sscanf(pwbuf, "%d", &buzzer_on_off) != 1)
+        return -EINVAL;
+
+    if(buzzer_on_off)
         gpiod_set_value(buzzer_gpio, 1);
-    else   
+    else if(!buzzer_on_off)
         gpiod_set_value(buzzer_gpio, 0);
 
-    bytes_written++;
-    return bytes_written;
+    return len;   
 }
+
 
 static long buzzer_ioctl(struct file *file, unsigned int cmd, unsigned long ioctl_param)
 {
@@ -79,6 +100,7 @@ static int buzzer_probe (struct platform_device *pdev)
 {
     int ret;
     struct device *dev = &pdev->dev;
+    check_dev_buzzer_node();
 
     printk(KERN_INFO"buzzer 裝置已經被probed!\n");
     ret = alloc_chrdev_region(&dev_num, 0, 1, DEVICE_NAME);
