@@ -126,7 +126,8 @@
       <label>高: <input type="number" id="height" value="720"></label>
       <br><br>
       <button onclick="captureWithLed()">📷 拍照</button>
-      <img id="photo" src="">
+      <button onclick="togglePhoto()">👁️ 顯示/隱藏</button> 
+      <img id="photo" src="" onclick="togglePhoto()">
     </div>
     <div class="card">
       <h2>🎮 鏡頭轉向</h2>
@@ -171,6 +172,7 @@
   </div>
 
   <script>
+    let hideTimer = null;
     const host = location.hostname;
     const wsVoice = new WebSocket(`ws://${host}:8081`);
     const wsMove = new WebSocket(`ws://${host}:8082`);
@@ -181,22 +183,39 @@
       live.style.display = live.style.display === "block" ? "none" : "block";
     }
 
+
     wsVoice.onmessage = (event) => {
       const text = event.data.trim().toLowerCase();
-      document.getElementById("text").textContent = ` 辨識到: ${text}`;
-      document.getElementById("text").style.display = 'block';
+      const textElem = document.getElementById("text");
+      const alertElem = document.getElementById("alert");
 
-      if (text.includes("help")) showAlert("緊急狀況！", 'red');
-      else if (text.includes("hello")) showAlert("已送出開燈指令！", 'green');
-      else if (text.includes("bye bye")) showAlert("已送出關燈指令！", 'gray');
+      // 顯示辨識文字
+      textElem.textContent = `🎤 辨識到: ${text}`;
+      textElem.style.display = 'block';
+      alertElem.style.display = 'none';
+
+      // 顯示對應提示
+      if (text.includes("help")) {
+        alertElem.textContent = "🚨 緊急狀況！";
+        alertElem.style.color = "red";
+        alertElem.style.display = "block";
+      } else if (text.includes("hello")) {
+        alertElem.textContent = "💡 已送出開燈指令！";
+        alertElem.style.color = "green";
+        alertElem.style.display = "block";
+      } else if (text.includes("bye bye")) {
+        alertElem.textContent = "💤 已送出關燈指令！";
+        alertElem.style.color = "gray";
+        alertElem.style.display = "block";
+      }
+
+      // ⏱️ 每次新訊息都清除前一個倒數，再重新計時
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
+        textElem.style.display = 'none';
+        alertElem.style.display = 'none';
+      }, 4000);
     };
-
-    function showAlert(msg, color) {
-      const alert = document.getElementById("alert");
-      alert.textContent = msg;
-      alert.style.color = color;
-      alert.style.display = 'block';
-    }
 
     function sendMove(dir) {
       if (wsMove.readyState === WebSocket.OPEN) wsMove.send(`move ${dir}`);
@@ -212,7 +231,7 @@
           if (data.success) {
             const photo = document.getElementById('photo');
             photo.src = `/uploads/backup/${data.filename}?t=${Date.now()}`;
-            photo.style.display = 'block';
+            // photo.style.display = 'block';
           }
         });
     }
@@ -313,7 +332,26 @@
         case " ": sendCommand?.("S"); break;
       }
     });
+    function togglePhoto() {
+      const photo = document.getElementById("photo");
+      photo.style.display = (photo.style.display === "block") ? "none" : "block";
+    }
 
+    function captureWithLed() {
+      const w = document.getElementById('width').value;
+      const h = document.getElementById('height').value;
+      fetch(`/led-on`, { method: "POST" })
+        .then(() => fetch(`/capture?width=${w}&height=${h}`))
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            const photo = document.getElementById('photo');
+            photo.src = `/uploads/backup/${data.filename}?t=${Date.now()}`;
+            photo.style.display = 'block'; 
+          }
+        });
+    }
+  
     setInterval(() => {
   const live = document.getElementById("live");
   live.src = `/uploads/output.jpg?t=${Date.now()}`;
